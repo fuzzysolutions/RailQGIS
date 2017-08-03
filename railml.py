@@ -20,8 +20,9 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt
-from PyQt4.QtGui import QAction, QIcon
+from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QDir
+from PyQt4.QtGui import QAction, QIcon, QFileDialog
+from qgis.core import *
 # Initialize Qt resources from file resources.py
 import resources
 
@@ -29,6 +30,32 @@ import resources
 from railml_dockwidget import RailMLDockWidget
 import os.path
 
+# Import the ElementTree XML API
+import xml.etree.ElementTree as ET
+from fileinput import filename
+
+
+# Namespace definition
+railnsURI = ""
+railns = ""
+ns = {'rail': railnsURI,
+      'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+      'schemaLocation': railnsURI      
+      }
+
+
+
+# Global XML Tag definitions (prepared for possible changes in RailML Scheme definition
+geoCoord = (railns + "geoCoord")
+coord = (railns + "coord")
+
+
+#Latitude / Longitude order as used in the coord="0 1" tag
+lat = 1
+lon = 0
+
+railmlpath = ""
+railmlname=""
 
 class RailML:
     """QGIS Plugin Implementation."""
@@ -72,7 +99,8 @@ class RailML:
 
         self.pluginIsActive = False
         self.dockwidget = None
-
+        
+        
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -207,6 +235,89 @@ class RailML:
         del self.toolbar
 
     #--------------------------------------------------------------------------
+    def updateNs(self):
+        global railns
+        global railnsURI
+        global ns
+        global geoCoord
+        global coord
+        railns = "{"+railnsURI+"}"
+        ns = {'rail': railnsURI,
+              'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+              'schemaLocation': railnsURI      
+              }
+        geoCoord = (railns + "geoCoord")
+        coord = (railns + "coord")
+    
+    def convCoords(self, text):
+        newtext=text.split()
+        return newtext
+    
+    
+    def parse_railml(self):
+        global geoCoord
+        global ns
+        global railnsURI
+        global railmlpath
+        i=0
+        
+        self.dockwidget.labelCoordCount.clear()
+        self.dockwidget.labelCoordCount.setText("searching ...")
+        
+        tree = ET.parse(railmlpath)
+        root = tree.getroot()
+        railnsURI=root.tag.split('}')[0].strip('{')
+        self.updateNs()
+        for coordtag in root.iter(geoCoord):
+            i=i+1
+        self.dockwidget.labelCoordCount.clear()
+        self.dockwidget.labelCoordCount.setText(str(i) + " Elements found.")
+        if i > 0:
+            self.dockwidget.buttonLoadPoints.setEnabled(True)
+        else:
+            self.dockwidget.buttonLoadPoints.setEnabled(False)
+    
+    def load_Points(self):
+        """Loads Points as temporary Layer into QGIS.
+            Attention: Here goes Lat Lon Coordinate conversion in (see for new RailML version ...
+        """        
+        global railmlpath
+        global railmlname
+        global ns
+        
+        self.dockwidget.labelCoordCount.clear()
+        self.dockwidget.labelCoordCount.setText("loading ...")
+        
+        pointLayer = self.iface.addVectorLayer('Point?crs=epsg:4326', railmlname , 'memory')
+        prov = pointLayer.dataProvider()     # Set the provider to accept the data source
+        feat = QgsFeature()             # Prepare a container for new features
+        
+        i=0
+        tree = ET.parse(railmlpath)
+        root = tree.getroot()
+        
+        for coordtag in root.iter(geoCoord):
+            i=i+1
+            coordtext=self.convCoords(coordtag.get('coord'))
+            point = QgsPoint(float(coordtext[lat]), float(coordtext[lon]))  # get the new coordinate
+            feat.setGeometry(QgsGeometry.fromPoint(point))  # load it into the feature container
+            prov.addFeatures([feat])    # add the feature
+        pointLayer.updateExtents()      # Update extent of the layer
+        
+        self.dockwidget.labelCoordCount.clear()
+        self.dockwidget.labelCoordCount.setText(str(i) + " Elements loaded.")
+        
+    def select_input_file(self):
+        """Loads a new RailML file."""
+        global railmlname
+        global railmlpath
+        railmlpath = QFileDialog.getOpenFileName(self.dockwidget, "Select RailML file","", "RailML files (*.railml *.xml)")
+        if railmlpath != "":
+            self.dockwidget.labelFilename.clear()
+            railmlname=QDir(railmlpath).dirName()
+            self.dockwidget.labelFilename.setText(railmlname)
+            self.parse_railml()
+
 
     def run(self):
         """Run method that loads and starts the plugin"""
@@ -230,4 +341,9 @@ class RailML:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+            
+            global railmlpath
+            
+            self.dockwidget.buttonNewFile.clicked.connect(self.select_input_file)
+            self.dockwidget.buttonLoadPoints.clicked.connect(self.load_Points)
 

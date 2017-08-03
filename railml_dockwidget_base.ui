@@ -6,21 +6,82 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>232</width>
-    <height>141</height>
+    <width>304</width>
+    <height>185</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>RailML</string>
+   <string>&amp;RailML</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
+   <property name="maximumSize">
+    <size>
+     <width>300</width>
+     <height>16777215</height>
+    </size>
+   </property>
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
-     <widget class="QLabel" name="label">
+    <item row="0" column="3" alignment="Qt::AlignHCenter|Qt::AlignTop">
+     <widget class="QPushButton" name="buttonNewFile">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Load new RailML file&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
       <property name="text">
-       <string>Replace this QLabel
-with the desired
-plugin content.</string>
+       <string>new</string>
+      </property>
+      <property name="icon">
+       <iconset theme="File"/>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0" alignment="Qt::AlignLeft|Qt::AlignTop">
+     <widget class="QLabel" name="labelCoordCount">
+      <property name="minimumSize">
+       <size>
+        <width>100</width>
+        <height>20</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>400</width>
+        <height>20</height>
+       </size>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="labelFilename">
+      <property name="minimumSize">
+       <size>
+        <width>200</width>
+        <height>20</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>200</width>
+        <height>20</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>no RailML file loaded</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="3" alignment="Qt::AlignRight|Qt::AlignTop">
+     <widget class="QPushButton" name="buttonLoadPoints">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>load</string>
       </property>
      </widget>
     </item>

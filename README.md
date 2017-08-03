@@ -6,6 +6,7 @@ Disclaimer: This project is completely experimental and I'm just about to start 
 What works: Import of pure coordinates only.
 * Analyse the number of coordinates saved in a <geoCoord ... /> tags in RailML
 * Load these points as a temporary Layer into QGIS
+
 Requirements (as of v0.1):
 * A RailML file (tested v2.2 and v2.3, other v2.x files should probably work) ...
 * ... containing EPSG:4326 (WGS 84) coordinates

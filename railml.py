@@ -20,7 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QDir
+from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QDir, QVariant
 from PyQt4.QtGui import QAction, QIcon, QFileDialog
 from qgis.core import *
 # Initialize Qt resources from file resources.py
@@ -35,7 +35,7 @@ import xml.etree.ElementTree as ET
 from fileinput import filename
 
 
-# Namespace definition
+# Namespace definition - blank (To be updated in updatens())
 railnsURI = ""
 railns = ""
 ns = {'rail': railnsURI,
@@ -46,8 +46,10 @@ ns = {'rail': railnsURI,
 
 
 # Global XML Tag definitions (prepared for possible changes in RailML Scheme definition
-geoCoord = (railns + "geoCoord")
-coord = (railns + "coord")
+geoCoord = "geoCoord"
+coord = "coord"
+id = "id"
+epsgCode = "epsgCode"
 
 
 #Latitude / Longitude order as used in the coord="0 1" tag
@@ -56,6 +58,8 @@ lon = 0
 
 railmlpath = ""
 railmlname=""
+
+epsg="4326"
 
 class RailML:
     """QGIS Plugin Implementation."""
@@ -236,29 +240,33 @@ class RailML:
 
     #--------------------------------------------------------------------------
     def updateNs(self):
+        """Get the actual namespace
+        """
         global railns
         global railnsURI
         global ns
-        global geoCoord
-        global coord
         railns = "{"+railnsURI+"}"
         ns = {'rail': railnsURI,
               'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
               'schemaLocation': railnsURI      
               }
-        geoCoord = (railns + "geoCoord")
-        coord = (railns + "coord")
-    
+        
+    # convert coordinates from lat_lon to lat,lon
     def convCoords(self, text):
         newtext=text.split()
         return newtext
     
-    
     def parse_railml(self):
+        """Load and analyse the railml structure
+        """
         global geoCoord
         global ns
         global railnsURI
         global railmlpath
+        global elements
+        global epsg
+        global epsgCode
+        
         i=0
         
         self.dockwidget.labelCoordCount.clear()
@@ -268,7 +276,8 @@ class RailML:
         root = tree.getroot()
         railnsURI=root.tag.split('}')[0].strip('{')
         self.updateNs()
-        for coordtag in root.iter(geoCoord):
+        elements = root.findall((".//%s"+geoCoord+"/..") %railns)
+        for element in elements:
             i=i+1
         self.dockwidget.labelCoordCount.clear()
         self.dockwidget.labelCoordCount.setText(str(i) + " Elements found.")
@@ -276,6 +285,11 @@ class RailML:
             self.dockwidget.buttonLoadPoints.setEnabled(True)
         else:
             self.dockwidget.buttonLoadPoints.setEnabled(False)
+        #Automatically detect EPSG code from first element
+        coordtag=elements[1].find((".//%s"+geoCoord) %railns)
+        epsg=str(coordtag.get(epsgCode))
+        if epsg=="None":
+            epsg="4326" # Fallback
     
     def load_Points(self):
         """Loads Points as temporary Layer into QGIS.
@@ -284,23 +298,33 @@ class RailML:
         global railmlpath
         global railmlname
         global ns
+        global coord
+        global geoCoord
+        global id
+        global elements
+        global epsg
         
         self.dockwidget.labelCoordCount.clear()
         self.dockwidget.labelCoordCount.setText("loading ...")
         
-        pointLayer = self.iface.addVectorLayer('Point?crs=epsg:4326', railmlname , 'memory')
+        pointLayer = self.iface.addVectorLayer(('Point?crs=epsg:'+epsg), railmlname , 'memory')
         prov = pointLayer.dataProvider()     # Set the provider to accept the data source
+        prov.addAttributes([QgsField('id', QVariant.String)])  # Add an "id" field to the layer
         feat = QgsFeature()             # Prepare a container for new features
+        pointLayer.updateFields()   # Update in order to enable id field
         
         i=0
         tree = ET.parse(railmlpath)
         root = tree.getroot()
         
-        for coordtag in root.iter(geoCoord):
+        for element in elements:
             i=i+1
-            coordtext=self.convCoords(coordtag.get('coord'))
+            elementid = element.get(id)
+            coordtag=element.find((".//%s"+geoCoord) %railns)
+            coordtext=self.convCoords(coordtag.get(coord))
             point = QgsPoint(float(coordtext[lat]), float(coordtext[lon]))  # get the new coordinate
             feat.setGeometry(QgsGeometry.fromPoint(point))  # load it into the feature container
+            feat.setAttributes([elementid])
             prov.addFeatures([feat])    # add the feature
         pointLayer.updateExtents()      # Update extent of the layer
         
